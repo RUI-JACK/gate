@@ -36,7 +36,7 @@ for _stream in (sys.stdout, sys.stderr):
 # ---------------------------------------------------------------------------
 REPO_DIR = os.path.dirname(os.path.abspath(__file__))
 
-VPNGATE_API = os.environ.get("VPNGATE_API", "http://www.vpngate.net/api/iphone/")
+VPNGATE_API = os.environ.get("VPNGATE_API", "https://www.vpngate.net/api/iphone/")
 VPNGATE_MIRROR = os.environ.get(
     "VPNGATE_MIRROR",
     "https://raw.githubusercontent.com/fdciabdul/Vpngate-Scraper-API/main/json/data.json",
@@ -95,7 +95,7 @@ EDGE_HOSTS = [
 # 优选 API 地址配置 (支持逗号分隔多个，可配置在 GitHub Action Secret / Env 中)
 OPTIMAL_API = os.environ.get("OPTIMAL_API", "https://cf.090227.xyz/ct?ips=6&port=443")
 
-NODES_URL = os.environ.get("NODES_URL", "https://YOUR_GITHUB_USERNAME.github.io/gate/nodes.txt")
+NODES_URL = os.environ.get("NODES_URL", "https://rui-jack.github.io/gate/nodes.txt")
 
 # ---------------------------------------------------------------------------
 # 日志
@@ -348,13 +348,14 @@ def check_one(node, session):
         exit_info = j.get("exit") or {}
         if exit_info:
             asn = exit_info.get("asn") or {}
+            location = exit_info.get("location") or {}
             org = asn.get("org") or asn.get("name") or ""
             out["exit"] = {
                 "ip": exit_info.get("ip"),
-                "country": exit_info.get("country"),
-                "country_code": exit_info.get("country_code"),
-                "city": exit_info.get("city"),
-                "continent": exit_info.get("continent"),
+                "country": location.get("country") or exit_info.get("country"),
+                "country_code": location.get("country_code") or exit_info.get("country_code"),
+                "city": location.get("city") or exit_info.get("city"),
+                "continent": location.get("continent") or exit_info.get("continent"),
                 "asn": asn.get("asn"),
                 "org": org,
                 "type": asn.get("type"),
@@ -408,7 +409,6 @@ def build_outputs(results, raw_count, sstp_count, source):
     data = {
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
         "source": source,
-        "worker": WORKER_CHECK_URL,
         "stats": stats,
         "countries": by_country,
         "available": available,
@@ -503,6 +503,8 @@ def main():
 
     if uniq and not success and len(worker_errors) == len(uniq):
         die("Worker 全部请求异常, 检测服务不可用 — 本次运行判定失败 (不生成空结果)")
+    if not success:
+        die("本轮没有可用 SSTP 节点，保留上次已发布的节点列表")
 
     data = build_outputs(results, raw_count, sstp_count, source)
     log("RESULT", f"可用节点: {len(success)}")
